@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>เกมส์ซ่าท้าบาลี (Bali Battle Game)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#000;overflow:hidden;font-family:'Sarabun','Tahoma',sans-serif}
+  body{display:flex;align-items:center;justify-content:center}
+  #stage{position:relative;width:min(100vw,calc(100vh*16/9));aspect-ratio:16/9;background:#000;overflow:hidden;container-type:inline-size;user-select:none}
+  .scene{position:absolute;inset:0;opacity:0;pointer-events:none;transition:opacity .7s ease}
+  .scene.on{opacity:1;pointer-events:auto}
+  .scene.instant{transition:none}
+  .bg{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;display:block}
+  .lay{position:absolute;display:block;transition:opacity .9s ease,transform .25s ease,filter .25s ease}
+  .fade{opacity:0}
+  .btn{cursor:pointer}
+  .btn:hover{transform:scale(1.08);filter:brightness(1.3) drop-shadow(0 0 1.2cqw rgba(255,225,160,.85))}
+  .btn:active{transform:scale(.97)}
+  #vid{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;display:none;z-index:5}
+  #hud{position:absolute;left:0;right:0;bottom:1.6cqw;text-align:center;color:#d9c4a8;font-weight:700;font-size:1.5cqw;letter-spacing:.05em;text-shadow:0 .1cqw .4cqw #000;pointer-events:none}
+  #ans{position:absolute;display:none;background:rgba(0,0,0,.18);border:0;border-bottom:.35cqw solid #dccdb2;color:#fff;text-align:center;font-family:'Sarabun',sans-serif;font-weight:700;font-size:3.4cqw;outline:none;border-radius:.6cqw;z-index:3}
+  #ans::placeholder{color:rgba(255,255,255,.35);font-size:2cqw}
+  #fb{position:absolute;left:0;right:0;top:66%;text-align:center;font-size:3cqw;font-weight:700;opacity:0;transition:opacity .25s;pointer-events:none;text-shadow:0 .2cqw .6cqw #000}
+  #fb.show{opacity:1}.ok{color:#9be28f}.no{color:#ff8a80}
+  .msg{position:absolute;left:12%;right:12%;top:20%;text-align:center;color:#fff;font-weight:700;line-height:1.5}
+  .msg h1{font-size:5cqw}.msg p{font-size:2.6cqw;color:#e8d7bd;margin-top:1.5cqw}
+  .big{position:absolute;left:50%;transform:translateX(-50%);top:62%;padding:1cqw 4cqw;font-size:3cqw;font-weight:700;color:#4a1612;background:linear-gradient(#f2d98a,#c9a24a);border:.25cqw solid #fff3c4;border-radius:1cqw;cursor:pointer;transition:transform .2s,filter .2s}
+  .big:hover{transform:translateX(-50%) scale(1.07);filter:brightness(1.12)}
+</style>
+</head>
+<body>
+<div id="stage">
+  <!-- 1 หน้าแรก -->
+  <div class="scene" id="s-title"></div>
+  <!-- 2 หน้าดำ (ตัวอักษรขึ้นตามลำดับ) -->
+  <div class="scene" id="s-black"></div>
+  <!-- 3 หน้า SKIP -->
+  <div class="scene" id="s-skip"></div>
+  <!-- 4 หน้าคำถาม -->
+  <div class="scene" id="s-q"></div>
+  <!-- ผ่าน / ไม่ผ่าน / เครดิต -->
+  <div class="scene" id="s-pass"></div>
+  <div class="scene" id="s-fail"></div>
+  <div class="scene" id="s-credit"></div>
+  <video id="vid" src="assets/transition.mp4" playsinline preload="auto"></video>
+</div>
+
+<script>
+/* ===== ข้อมูลตำแหน่งของภาพจาก PDF (พิกัดบนสไลด์ 1440x810) ===== */
+const META = {"0":{"main":{"f":"p0_main.png","x":396.7,"y":220.0,"w":636.0,"h":240.7},"btn":{"f":"p0_btn.png","x":640.7,"y":558.7,"w":163.3,"h":49.3}},"1":{"main":{"f":"p1_main.png","x":340.7,"y":354.0,"w":757.3,"h":93.3}},"2":{"main":{"f":"p2_main.png","x":479.3,"y":354.0,"w":477.3,"h":72.0}},"3":{"main":{"f":"p3_main.png","x":581.3,"y":354.0,"w":276.0,"h":72.0}},"4":{"main":{"f":"p4_main.png","x":467.3,"y":256.7,"w":440.0,"h":72.0},"btn":{"f":"p4_btn.png","x":622.0,"y":570.7,"w":130.7,"h":56.7}},"5":{"main":{"f":"p5_main.png","x":398.0,"y":270.0,"w":628.7,"h":56.7},"btn":{"f":"p5_btn.png","x":622.0,"y":604.0,"w":130.7,"h":56.7}},"6":{"main":{"f":"p6_main.png","x":406.7,"y":266.7,"w":626.0,"h":56.7},"btn":{"f":"p6_btn.png","x":632.0,"y":589.3,"w":130.0,"h":56.7}},"7":{"main":{"f":"p7_main.png","x":454.7,"y":248.7,"w":530.0,"h":65.3},"btn":{"f":"p7_btn.png","x":655.3,"y":618.0,"w":130.7,"h":56.7}},"8":{"main":{"f":"p8_main.png","x":366.0,"y":149.3,"w":698.7,"h":188.7},"btn":{"f":"p8_btn.png","x":638.0,"y":559.3,"w":162.0,"h":78.0}},"9":{"main":{"f":"p9_main.png","x":224.7,"y":118.0,"w":914.7,"h":166.0},"btn":{"f":"p9_btn.png","x":638.0,"y":559.3,"w":162.0,"h":78.0}},"10":{"main":{"f":"p10_main.png","x":321.3,"y":130.0,"w":798.7,"h":146.7},"btn":{"f":"p10_btn.png","x":638.0,"y":559.3,"w":162.0,"h":78.0}},"11":{"main":{"f":"p11_main.png","x":334.0,"y":200.7,"w":771.3,"h":128.7},"btn":{"f":"p11_btn.png","x":638.0,"y":559.3,"w":162.0,"h":78.0}},"12":{"main":{"f":"p12_main.png","x":399.3,"y":201.3,"w":641.3,"h":174.7},"btn":{"f":"p12_btn.png","x":638.0,"y":559.3,"w":162.0,"h":78.0}},"13":{"main":{"f":"p13_main.png","x":493.3,"y":154.7,"w":450.0,"h":147.3},"btn":{"f":"p13_btn.png","x":638.0,"y":559.3,"w":162.0,"h":78.0}},"14":{"main":{"f":"p14_main.png","x":386.0,"y":134.0,"w":662.0,"h":152.0},"btn":{"f":"p14_btn.png","x":638.0,"y":559.3,"w":162.0,"h":78.0}},"15":{"main":{"f":"p15_main.png","x":487.3,"y":193.3,"w":466.0,"h":162.7},"btn":{"f":"p15_btn.png","x":638.0,"y":559.3,"w":162.0,"h":78.0}},"16":{"main":{"f":"p16_main.png","x":344.7,"y":193.3,"w":738.0,"h":162.7},"btn":{"f":"p16_btn.png","x":638.0,"y":559.3,"w":162.0,"h":78.0}},"17":{"main":{"f":"p17_main.png","x":358.7,"y":132.0,"w":711.3,"h":234.7},"btn":{"f":"p17_btn.png","x":638.0,"y":559.3,"w":162.0,"h":78.0}},"18":{"main":{"f":"p18_main.png","x":438.7,"y":184.0,"w":561.3,"h":234.0},"btn":{"f":"p18_btn.png","x":638.0,"y":559.3,"w":162.0,"h":78.0}},"19":{"main":{"f":"p19_main.png","x":552.0,"y":190.0,"w":325.3,"h":119.3},"btn":{"f":"p19_btn.png","x":638.0,"y":559.3,"w":162.0,"h":78.0}},"20":{"main":{"f":"p20_main.png","x":424.7,"y":147.3,"w":588.0,"h":200.0},"btn":{"f":"p20_btn.png","x":638.0,"y":559.3,"w":162.0,"h":78.0}},"21":{"main":{"f":"p21_main.png","x":389.3,"y":144.7,"w":651.3,"h":189.3},"btn":{"f":"p21_btn.png","x":638.0,"y":559.3,"w":162.0,"h":78.0}},"22":{"main":{"f":"p22_main.png","x":594.7,"y":146.0,"w":246.7,"h":215.3},"btn":{"f":"p22_btn.png","x":638.0,"y":559.3,"w":162.0,"h":78.0}},"23":{"main":{"f":"p23_main.png","x":286.7,"y":149.3,"w":756.0,"h":204.7},"btn":{"f":"p23_btn.png","x":638.0,"y":559.3,"w":162.0,"h":78.0}},"24":{"main":{"f":"p24_main.png","x":349.3,"y":158.0,"w":736.7,"h":218.7},"btn":{"f":"p24_btn.png","x":638.0,"y":559.3,"w":162.0,"h":78.0}},"25":{"main":{"f":"p25_main.png","x":420.0,"y":154.0,"w":593.3,"h":216.0},"btn":{"f":"p25_btn.png","x":638.0,"y":559.3,"w":162.0,"h":78.0}},"26":{"main":{"f":"p26_main.png","x":364.0,"y":152.7,"w":716.0,"h":206.7},"btn":{"f":"p26_btn.png","x":638.0,"y":559.3,"w":162.0,"h":78.0}},"27":{"main":{"f":"p27_main.png","x":396.0,"y":168.7,"w":644.0,"h":193.3},"btn":{"f":"p27_btn.png","x":638.0,"y":559.3,"w":162.0,"h":78.0}}};
+const W = 1440, H = 810;
+
+/* ===== คำถาม 20 ข้อ : คำบาลี + คำอ่าน ===== */
+const QUESTIONS = [
+  ["อุปริปลฺลเล","อุ-ปะ-ริ-ปัน-ละ-เล"],
+  ["สมนฺตามภิธาวิโน","สะ-มัน-ตา-มะ-พิ-ทา-วิ-โน"],
+  ["พฺราหฺมณสฺส","พะ-รา-หะ-มะ-นัด-สะ"],
+  ["สพฺพญฺญุตญาณํ","สับ-พัน-ยุ-ตะ-ยา-นัง"],
+  ["เวสฺสนฺตรํ","เวด-สัน-ตะ-รัง"],
+  ["มหนฺตํ","มะ-หัน-ตัง"],
+  ["สสํวิทหิตํ","สะ-สัง-วิ-ทะ-หิ-ตัง"],
+  ["ลกฺขนํ","ลัก-ขะ-นัง"],
+  ["อาคนฺตฺวา","อา-คัน-ตะ-วา"],
+  ["เทวปุตฺตา","เท-วะ-ปุด-ตา"],
+  ["นิปชฺชิํสุ","นิ-ปัด-ชิง-สุ"],
+  ["อชชฺ","อะ-ชัด"],
+  ["ขณิตฺติกํ","ขะ-นิด-ติ-กัง"],
+  ["อปกฺกมุนฺติ","อะ-ปัก-กะ-มุน-ติ"],
+  ["พหุํ","พะ-หุง"],
+  ["โอโลเกนฺตา","โอ-โล-เกน-ตา"],
+  ["ปํสุกุณฺฐิตา","ปัง-สุ-กุน-ถิ-ตา"],
+  ["นิกฺขมมฺ","นิก-ขะ-มัม"],
+  ["ตุณฺหิมาสีนํ","ตุน-หิ-มา-สี-นัง"],
+  ["ปทกฺกนฺตํ","ปะ-ทัก-กัน-ตัง"]
+];
+const PASS_SCORE = 6, ROUND_SIZE = 10;
+
+/* ===== ตัวช่วย ===== */
+const $ = id => document.getElementById(id);
+const stage = $('stage');
+const norm = s => s.normalize('NFC').replace(/[\s\-–—_.\u200b\u200c\u200d]/g,'').toLowerCase();
+const wait = ms => new Promise(r => setTimeout(r, ms));
+
+function layer(m, extra=''){
+  const i = new Image();
+  i.src = 'assets/' + m.f; i.draggable = false;
+  i.className = 'lay ' + extra;
+  Object.assign(i.style,{left:m.x/W*100+'%',top:m.y/H*100+'%',width:m.w/W*100+'%',height:m.h/H*100+'%'});
+  return i;
+}
+function bg(file){ const i=new Image(); i.src='assets/'+file; i.className='bg'; i.draggable=false; return i; }
+function show(id, instant=false){
+  document.querySelectorAll('.scene').forEach(s=>{ if(s.id!==id) s.classList.remove('on'); });
+  const s=$(id);
+  if(instant){ s.classList.add('instant'); s.classList.add('on'); void s.offsetWidth; s.classList.remove('instant'); }
+  else s.classList.add('on');
+}
+
+/* ===== 1) หน้าแรก ===== */
+(function(){
+  const s=$('s-title');
+  s.append(bg('bg0.jpg'), layer(META[0].main));
+  const b=layer(META[0].btn,'btn'); b.title='START'; b.onclick=startIntro; s.append(b);
+})();
+
+/* ===== 2) วิดีโอเปลี่ยนผ่าน -> หน้าดำ ===== */
+const vid=$('vid');
+async function startIntro(){
+  vid.style.display='block'; vid.currentTime=0; vid.muted=false;
+  try{ await vid.play(); }
+  catch(e){ try{ vid.muted=true; await vid.play(); }catch(e2){ return afterVideo(); } }
+  vid.onended = afterVideo;
+}
+function afterVideo(){
+  show('s-black', true);              // ภาพสุดท้ายของวิดีโอ = หน้าดำ + ข้อความแรก (ต่อเนื่องไม่สะดุด)
+  vid.style.display='none'; vid.pause();
+  runBlack(true);
+}
+let blackRun=0;
+async function runBlack(firstAlreadyVisible){
+  const s=$('s-black'); const my=++blackRun;
+  s.innerHTML=''; s.append(bg('bg1.jpg'));
+  const texts=[1,2,3].map(n=>layer(META[n].main,'fade')); texts.forEach(t=>s.append(t));
+  texts[0].style.transition = firstAlreadyVisible ? 'none' : ''; texts[0].classList.remove('fade');
+  await wait(3200); if(my!==blackRun) return;
+  for(let k=1;k<3;k++){
+    texts[k-1].style.transition=''; texts[k-1].classList.add('fade'); await wait(1000); if(my!==blackRun) return;
+    texts[k].classList.remove('fade'); await wait(3200); if(my!==blackRun) return;
+  }
+  texts[2].classList.add('fade'); await wait(900); if(my!==blackRun) return;
+  goSkip(0);
+}
+$('s-black').addEventListener('dblclick',()=>{ blackRun++; goSkip(0); });
+
+/* ===== 3) หน้า SKIP 4 หน้า ===== */
+function goSkip(n){
+  const p=4+n, s=$('s-skip'); s.innerHTML='';
+  s.append(bg('bg'+p+'.jpg'), layer(META[p].main));
+  const b=layer(META[p].btn,'btn'); b.title='SKIP';
+  b.onclick=()=> n<3 ? goSkip(n+1) : startGame();
+  s.append(b); show('s-skip');
+}
+
+/* ===== 4) เกมคำถาม ===== */
+let deck=[], idx=0, score=0, busy=false;
+const qs=$('s-q');
+const input=document.createElement('input'); input.id='ans'; input.type='text'; input.autocomplete='off'; input.spellcheck=false; input.placeholder='พิมพ์คำอ่านแล้วกด Enter';
+const fb=document.createElement('div'); fb.id='fb';
+const hud=document.createElement('div'); hud.id='hud';
+
+function startGame(){
+  const pool=QUESTIONS.map((q,i)=>i);
+  for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
+  deck=pool.slice(0,ROUND_SIZE); idx=0; score=0; busy=false;
+  showQuestion();
+}
+function showQuestion(){
+  const q=deck[idx], p=8+q;
+  qs.innerHTML='';
+  qs.append(bg('bg8.jpg'), layer(META[p].main));
+  const b=layer(META[p].btn,'btn'); b.title='ตอบ'; qs.append(b);
+  input.value=''; input.style.display='none';
+  const m=META[p].btn;
+  Object.assign(input.style,{left:(m.x-110)/W*100+'%',width:(m.w+220)/W*100+'%',top:(m.y-4)/H*100+'%',height:(m.h+8)/H*100+'%'});
+  b.onclick=()=>{ if(busy) return; b.style.opacity=0; input.style.display='block'; input.focus(); };
+  fb.className=''; fb.textContent='';
+  hud.textContent=`ข้อ ${idx+1} / ${ROUND_SIZE}  •  ตอบถูก ${score}  •  ต้องได้ ${PASS_SCORE} ข้อ`;
+  qs.append(input,fb,hud);
+  show('s-q');
+}
+input.addEventListener('keydown',async e=>{
+  if(e.key!=='Enter'||busy) return;
+  const v=norm(input.value); if(!v) return;
+  busy=true;
+  const [pali,read]=QUESTIONS[deck[idx]];
+  const ok = v===norm(read) || v===norm(pali);
+  if(ok) score++;
+  fb.textContent = ok ? '✓ ถูกต้อง' : '✗ ไม่ถูกต้อง';
+  fb.className='show '+(ok?'ok':'no');
+  input.style.display='none';
+  await wait(1100);
+  busy=false; idx++;
+  if(idx<ROUND_SIZE) showQuestion(); else finish();
+});
+
+function finish(){
+  const ok=score>=PASS_SCORE;
+  const s=$(ok?'s-pass':'s-fail'); s.innerHTML=''; s.append(bg('bg8.jpg'));
+  const m=document.createElement('div'); m.className='msg';
+  m.innerHTML = ok
+    ? `<h1>ยินดีด้วย! คุณผ่านแล้ว</h1><p>ตอบถูก ${score} จาก ${ROUND_SIZE} ข้อ<br>คุณออกจากสถานที่แปลกตาได้สำเร็จ</p>`
+    : `<h1>ยังไม่ผ่าน…</h1><p>ตอบถูก ${score} จาก ${ROUND_SIZE} ข้อ (ต้องได้อย่างน้อย ${PASS_SCORE} ข้อ)<br>หากไม่ผ่านเจ้าต้องเริ่มใหม่</p>`;
+  const b=document.createElement('div'); b.className='big'; b.textContent= ok ? 'ดูรายชื่อสมาชิก' : 'เริ่มใหม่ (สุ่มคำถามชุดใหม่)';
+  b.onclick = ok ? showCredit : startGame;
+  s.append(m,b); show(ok?'s-pass':'s-fail');
+}
+function showCredit(){
+  const s=$('s-credit'); s.innerHTML=''; s.append(bg('full28.jpg'));
+  const b=document.createElement('div'); b.className='big'; b.style.top='88%'; b.style.fontSize='2cqw'; b.textContent='เล่นอีกครั้ง';
+  b.onclick=()=>location.reload(); s.append(b); show('s-credit');
+}
+
+/* เริ่มที่หน้าแรก */
+show('s-title');
+</script>
+</body>
+</html>
